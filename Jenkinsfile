@@ -18,7 +18,7 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                checkout([$class: 'GitSCM', branches: [[name: '*/master']], extensions: [], userRemoteConfigs: [[url: 'https://github.com/ssmichaelm/aline-bank-microservice-MM.git']]])
+                checkout([$class: 'GitSCM', branches: [[name: '*/feature']], extensions: [], userRemoteConfigs: [[url: 'https://github.com/ssmichaelm/aline-bank-microservice-MM.git']]])
                 sh 'git submodule init'
                 sh 'git submodule update'
             }
@@ -36,7 +36,23 @@ pipeline {
                 sh 'mvn clean test'
             }
         }
-
+        // SonarQube
+        // Perform "mvn clean verfy" to ensure compiled classes are up-to-date so the Maven Surefire execution from "mvn sonar:sonar" includes the most recent modifications
+        stage('SonarQube analysis') {
+            steps {
+                withSonarQubeEnv('sq1') {
+                    sh 'mvn clean verify sonar:sonar'
+                }
+            }
+        }
+        stage('Quality Gate') {
+            steps {
+                timeout(time: 5, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+        
         // Produce artifact from the code, ready to be deployed
         stage('Packaging') {
             steps {
