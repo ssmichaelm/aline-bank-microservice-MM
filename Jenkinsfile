@@ -80,6 +80,26 @@ pipeline {
                 sh "docker push ${AWS_ID}.dkr.ecr.${REGION}.amazonaws.com/mm-${MICROSERVICE}-microservice:${env.tag}"
             }
         }
+
+        stage('Update (in testing)') {
+            steps {
+                script {
+                    sh 'aws ecr get-login-password --region ${REGION} | docker login --username AWS --password-stdin ${AWS_ID}.dkr.ecr.${REGION}.amazonaws.com'
+                    def clusterInfo = sh (script: 'aws ecs describe-clusters --cluster aline-ecs-mm', returnStdout: true)
+                    def slurper = new groovy.json.JsonSlurper()
+                    def result = slurper.parseText(clusterInfo)
+                    
+                    def status = result.clusters[0].status
+                    if(status == "ACTIVE"){
+                        echo "Update service."
+                        sh 'aws ecs update-service --cluster aline-ecs-mm --service --force-new-deployment'
+                    }
+                    else {
+                        echo "Create cluster."
+                    }
+                }
+            }
+        }
     }
 
     post {
